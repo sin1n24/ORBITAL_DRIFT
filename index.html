@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-Z4R237CLS1"></script>
@@ -14,24 +14,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>ORBITAL_DRIFT</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #050510; font-family: 'Arial', sans-serif; color: white; }
+        body { margin: 0; overflow: hidden; background: #050510; font-family: 'Segoe UI', sans-serif; color: white; }
         canvas { display: block; }
         #ui { position: absolute; top: 0; left: 0; width: 100%; pointer-events: none; padding: 15px; box-sizing: border-box; z-index: 5; }
         .hud { display: flex; justify-content: space-between; align-items: center; font-size: clamp(14px, 4vw, 18px); font-weight: bold; max-width: 800px; margin: 0 auto; }
         .hud-item { flex: 1; text-align: center; }
         .hud-item:first-child { text-align: left; }
         .hud-item:last-child { text-align: right; }
-        #bonusVal { color: #00d2ff; font-size: 1.2em; }
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: none;
+            background: rgba(0,0,0,0.95); display: none;
             flex-direction: column; align-items: center; justify-content: center;
-            pointer-events: auto; z-index: 10;
+            pointer-events: auto; z-index: 100;
         }
         .final-score { font-size: 48px; color: #ffea00; margin-bottom: 20px; }
-        .btn { padding: 15px 40px; margin: 10px; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn { 
+            padding: 15px 40px; margin: 10px; border: none; border-radius: 30px; 
+            font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
         .btn-retry { background: #00d2ff; color: #fff; }
         .btn-share { background: #1DA1F2; color: #fff; }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -47,8 +51,8 @@
 <div id="overlay">
     <h1 id="resultMsg">GAME OVER</h1>
     <div class="final-score">SCORE: <span id="finalScoreVal">0</span></div>
-    <button class="btn btn-retry" onclick="restart()">もう一度挑戦</button>
-    <button class="btn btn-share" id="shareBtn">結果をシェア</button>
+    <button class="btn btn-retry" id="retryBtn">Retry</button>
+    <button class="btn btn-share" id="shareBtn">Share</button>
 </div>
 
 <canvas id="gameCanvas"></canvas>
@@ -103,24 +107,41 @@ function initGame() {
 }
 
 function setupEnemies() {
-    // ステージごとの敵機数調整
     let enemyCount = (stage === 1) ? 4 : (stage === 2) ? 6 : (stage === 3) ? 7 : 8;
-    const safeCircleR = S * 0.55;
-    const rectSafeMargin = isLandscape ? canvas.width * 0.2 : canvas.height * 0.2;
+    const angleToGoal = Math.atan2(goal.y - player.y, goal.x - player.x);
+    
+    // 1. 【確定配置】自機と目的地の直線状に1体配置 (中間地点より少しゴール寄り)
+    const lineDist = Math.hypot(goal.x - player.x, goal.y - player.y) * 0.65;
+    const lx = player.x + Math.cos(angleToGoal) * lineDist;
+    const ly = player.y + Math.sin(angleToGoal) * lineDist;
+    enemies.push(createEnemyObject(lx, ly));
 
-    // 確定エネミー
-    enemies.push(createEnemyObject((player.x + goal.x) / 2, (player.y + goal.y) / 2));
+    // 2. ステージ3と4の特殊配置（画面端への固定配置）
+    if (stage === 3 || stage === 4) {
+        if (isLandscape) {
+            enemies.push(createEnemyObject(canvas.width / 2, S * 0.1));
+            enemies.push(createEnemyObject(canvas.width / 2, canvas.height - S * 0.1));
+        } else {
+            enemies.push(createEnemyObject(S * 0.1, canvas.height / 2));
+            enemies.push(createEnemyObject(canvas.width - S * 0.1, canvas.height / 2));
+        }
+    }
 
+    // 3. 残りの敵を前方扇形に分散配置
     let attempts = 0;
     while (enemies.length < enemyCount && attempts < 500) {
-        const ex = Math.random() * canvas.width;
-        const ey = Math.random() * canvas.height;
-        const distToStart = Math.hypot(ex - player.x, ey - player.y);
-        const distToGoal = Math.hypot(ex - goal.x, ey - goal.y);
-        const inCircleSafe = distToStart < safeCircleR || distToGoal < S * 0.3;
-        const inRectSafe = isLandscape ? (ex < rectSafeMargin || ex > canvas.width - rectSafeMargin) : (ey < rectSafeMargin || ey > canvas.height - rectSafeMargin);
-        
-        if (!inCircleSafe && !inRectSafe) enemies.push(createEnemyObject(ex, ey));
+        const angle = angleToGoal + (Math.random() - 0.5) * Math.PI;
+        const dist = S * (0.6 + Math.random() * 0.4);
+        const ex = player.x + Math.cos(angle) * dist;
+        const ey = player.y + Math.sin(angle) * dist;
+
+        if (ex > S*0.05 && ex < canvas.width - S*0.05 && ey > S*0.05 && ey < canvas.height - S*0.05) {
+            const tooClose = enemies.some(e => Math.hypot(ex - e.x, ey - e.y) < S * 0.2);
+            const nearGoal = Math.hypot(ex - goal.x, ey - goal.y) < S * 0.15;
+            if (!tooClose && !nearGoal) {
+                enemies.push(createEnemyObject(ex, ey));
+            }
+        }
         attempts++;
     }
 }
@@ -147,22 +168,16 @@ function createBoss() {
     }
 }
 
-// 爆発エフェクト（パーティクル）生成関数
 function createExplosion(x, y, color, count = 20) {
     for (let i = 0; i < count; i++) {
         particles.push({
-            x, y, 
-            vx: (Math.random() - 0.5) * S * 0.04, 
-            vy: (Math.random() - 0.5) * S * 0.04,
-            life: 1.0, 
-            color: color, 
-            r: S * 0.01
+            x, y, vx: (Math.random() - 0.5) * S * 0.04, vy: (Math.random() - 0.5) * S * 0.04,
+            life: 1.0, color: color, r: S * 0.01
         });
     }
 }
 
 function update() {
-    // パーティクルの更新
     particles.forEach((p, i) => {
         p.x += p.vx; p.y += p.vy; p.life -= 0.02;
         if (p.life <= 0) particles.splice(i, 1);
@@ -170,32 +185,22 @@ function update() {
 
     if (gameState !== 'playing') return;
 
-    // エネルギーの自然減少
-    if (stageEnergy > 0) {
-        stageEnergy -= 0.04;
-    } else {
-        stageEnergy = 0;
-    }
+    if (stageEnergy > 0) stageEnergy -= 0.04;
+    else stageEnergy = 0;
 
-    // 自機の移動処理
     player.x += (player.targetX - player.x) * player.speed;
     player.y += (player.targetY - player.y) * player.speed;
-    
-    // 残像データの蓄積
     player.trail.push({x: player.x, y: player.y});
     if (player.trail.length > 8) player.trail.shift();
 
     const sensorDist = S * 0.8;
     let closestEnemy = null;
     let minD = Infinity;
-
-    // 最も近い敵を特定
     enemies.forEach(e => {
         const d = Math.hypot(player.x - e.x, player.y - e.y);
         if (d < minD) { minD = d; closestEnemy = e; }
     });
 
-    // 敵の挙動更新
     enemies.forEach((e, i) => {
         const distP = Math.hypot(player.x - e.x, player.y - e.y);
         const isKiller = (stageEnergy === 0 && e === closestEnemy);
@@ -203,86 +208,64 @@ function update() {
         if (distP < sensorDist || isKiller) {
             const angle = Math.atan2(player.y - e.y, player.x - e.x);
             let force = (S * 0.00004 * stage + 0.008);
-            
-            if (isKiller) {
-                // エネルギー切れ且つ遠い（Sの40%以上）場合は3倍速で接近
-                force = (distP > S * 0.4) ? 0.06 : 0.02;
-            }
+            if (isKiller) force = 0.5; // 死神モード(50倍速)
             e.vx += Math.cos(angle) * force;
             e.vy += Math.sin(angle) * force;
         }
 
-        // 敵機同士の反発
-        enemies.forEach((other, j) => {
-            if (i === j) return;
-            const d = Math.hypot(e.x - other.x, e.y - other.y);
-            const repelDist = S * 0.25; 
-            if (d < repelDist) {
-                const ang = Math.atan2(e.y - other.y, e.x - other.x);
-                e.vx += Math.cos(ang) * ((repelDist - d) / repelDist) * 0.6;
-                e.vy += Math.sin(ang) * ((repelDist - d) / repelDist) * 0.6;
-            }
-        });
-
-        e.vx *= 0.95; e.vy *= 0.95; e.x += e.vx; e.y += e.vy;
-        
-        // 壁反射
+        if (stageEnergy > 0) {
+            enemies.forEach((other, j) => {
+                if (i === j) return;
+                const d = Math.hypot(e.x - other.x, e.y - other.y);
+                const repelDist = S * 0.25; 
+                if (d < repelDist) {
+                    const ang = Math.atan2(e.y - other.y, e.x - other.x);
+                    e.vx += Math.cos(ang) * ((repelDist - d) / repelDist) * 0.6;
+                    e.vy += Math.sin(ang) * ((repelDist - d) / repelDist) * 0.6;
+                }
+            });
+            e.vx *= 0.95; e.vy *= 0.95;
+        }
+        e.x += e.vx; e.y += e.vy;
         if(e.x < 0 || e.x > canvas.width) e.vx *= -1;
         if(e.y < 0 || e.y > canvas.height) e.vy *= -1;
 
         e.angle += e.rotSpeed;
         const sx = e.x + Math.cos(e.angle) * e.orbitR;
         const sy = e.y + Math.sin(e.angle) * e.orbitR;
-
-        // 衝突判定
-        if (player.visible && (distP < player.r + e.r || Math.hypot(player.x - sx, player.y - sy) < player.r + e.satelliteR)) {
-            gameOver();
-        }
+        if (player.visible && (distP < player.r + e.r || Math.hypot(player.x - sx, player.y - sy) < player.r + e.satelliteR)) gameOver();
     });
 
-    // ボス戦の処理
     if (boss) {
         if (Math.hypot(boss.x - boss.tx, boss.y - boss.ty) < 20) {
             boss.tx = Math.random() * (canvas.width - S * 0.4) + S * 0.2;
             boss.ty = Math.random() * (canvas.height - S * 0.4) + S * 0.2;
         }
-        // ボス移動速度（高速化）
-        boss.x += (boss.tx - boss.x) * 0.018; boss.y += (boss.ty - boss.y) * 0.018;
-        
+        boss.x += (boss.tx - boss.x) * 0.02; boss.y += (boss.ty - boss.y) * 0.02;
         if (stageEnergy === 0) {
             const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
-            boss.x += Math.cos(angle) * 1.5; boss.y += Math.sin(angle) * 1.5;
+            boss.x += Math.cos(angle) * 3.0; boss.y += Math.sin(angle) * 3.0;
         }
-
         boss.satellites.forEach(s => {
             s.angle += s.rotSpeed;
             const sx = boss.x + Math.cos(s.angle) * s.orbitR;
             const sy = boss.y + Math.sin(s.angle) * s.orbitR;
             if (player.visible && Math.hypot(player.x - sx, player.y - sy) < player.r + s.size) gameOver();
         });
-
         if (player.visible && Math.hypot(player.x - boss.x, player.y - boss.y) < player.r + boss.r) {
-            score += Math.floor(stageEnergy);
-            boss.visible = false;
-            createExplosion(boss.x, boss.y, goal.color, 80);
-            gameState = 'animating';
-            setTimeout(() => showResult("MISSION COMPLETE!"), 1200);
+            score += Math.floor(stageEnergy); boss.visible = false;
+            createExplosion(boss.x, boss.y, goal.color, 80); gameState = 'animating';
+            setTimeout(() => { if(stage === 5) showResult("MISSION COMPLETE!"); }, 1200);
         }
     } else {
-        // ステージクリア判定
         if (player.visible && Math.hypot(player.x - goal.x, player.y - goal.y) < player.r + goal.r) {
-            score += Math.floor(stageEnergy);
-            goal.visible = false;
-            createExplosion(goal.x, goal.y, goal.color, 40);
-            gameState = 'animating';
+            score += Math.floor(stageEnergy); goal.visible = false;
+            createExplosion(goal.x, goal.y, goal.color, 40); gameState = 'animating';
             setTimeout(() => { stage++; initGame(); }, 1000);
         }
     }
 
-    // フローティングテキスト更新
     floatingTexts.forEach((t, i) => { t.y -= 1; t.life -= 0.02; if (t.life <= 0) floatingTexts.splice(i, 1); });
-    
-    // UI反映
     document.getElementById('stageNum').innerText = stage;
     document.getElementById('scoreVal').innerText = score;
     document.getElementById('bonusVal').innerText = Math.floor(stageEnergy);
@@ -290,15 +273,11 @@ function update() {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // パーティクル描画
     particles.forEach(p => {
         ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
     });
     ctx.globalAlpha = 1.0;
-
-    // ゴール/ボスの描画
     if (stage < 5 && goal.visible) {
         ctx.beginPath(); ctx.arc(goal.x, goal.y, goal.r, 0, Math.PI * 2);
         ctx.fillStyle = goal.color; ctx.fill();
@@ -313,8 +292,6 @@ function draw() {
             ctx.fillStyle = '#ff416c'; ctx.fill();
         });
     }
-
-    // 敵の描画
     enemies.forEach(e => {
         ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
         ctx.fillStyle = '#ff4b2b'; ctx.fill();
@@ -323,81 +300,60 @@ function draw() {
         ctx.beginPath(); ctx.arc(sx, sy, e.satelliteR, 0, Math.PI * 2);
         ctx.fillStyle = '#ff416c'; ctx.fill();
     });
-
-    // 自機の描画
     if (player.visible) {
-        // 残像の描画
         player.trail.forEach((t, i) => {
             ctx.globalAlpha = 0.25 * (i / player.trail.length);
             ctx.beginPath(); ctx.arc(t.x, t.y, player.r * (0.6 + i/player.trail.length*0.4), 0, Math.PI * 2);
             ctx.fillStyle = player.color; ctx.fill();
         });
         ctx.globalAlpha = 1.0;
-
-        // 自機本体
         ctx.beginPath(); ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
         ctx.fillStyle = player.color; ctx.shadowBlur = 15; ctx.shadowColor = player.color; ctx.fill();
         ctx.shadowBlur = 0;
-
-        // エネルギーバー
-        const barW = player.r * 2.5;
-        const barH = 5;
-        ctx.fillStyle = 'rgba(255,255,255,0.2)';
-        ctx.fillRect(player.x - barW/2, player.y - player.r - 15, barW, barH);
-        ctx.fillStyle = stageEnergy > 20 ? '#00d2ff' : '#ff4b2b';
-        ctx.fillRect(player.x - barW/2, player.y - player.r - 15, barW * (stageEnergy / 100), barH);
+        const barW = player.r * 2.5; const barH = 5;
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(player.x - barW/2, player.y - player.r - 15, barW, barH);
+        ctx.fillStyle = stageEnergy > 20 ? '#00d2ff' : '#ff4b2b'; ctx.fillRect(player.x - barW/2, player.y - player.r - 15, barW * (stageEnergy / 100), barH);
     }
-
-    // テキスト描画
     floatingTexts.forEach(t => {
         ctx.fillStyle = `rgba(255, 75, 43, ${t.life})`;
         ctx.font = `bold ${S*0.04}px Arial`; ctx.fillText(t.text, t.x, t.y);
     });
-    
     requestAnimationFrame(() => { update(); draw(); });
 }
 
 function gameOver() {
     if (gameState !== 'playing') return;
-    gameState = 'animating';
-    player.visible = false;
+    gameState = 'animating'; player.visible = false;
     createExplosion(player.x, player.y, player.color, 50);
     setTimeout(() => showResult("GAME OVER"), 1200);
 }
 
 function showResult(msg) {
-    gameState = 'gameover';
-    document.getElementById('resultMsg').innerText = msg;
+    gameState = 'gameover'; document.getElementById('resultMsg').innerText = msg;
     document.getElementById('finalScoreVal').innerText = score;
     document.getElementById('overlay').style.display = 'flex';
-    const tweetText = encodeURIComponent(`ORBITAL_DRIFTでスコア ${score} を獲得！ (STAGE ${stage}/5)\nhttps://sin1.studio/Planet-Game/\n#ORBITAL_DRIFT`);
-    document.getElementById('shareBtn').onclick = () => window.open(`https://twitter.com/intent/tweet?text=${tweetText}`, '_blank');
+    let tweetText = `#ORBITAL_DRIFT Score: ${score} (Stage: ${stage}/5)`;
+    if(stage === 5 && msg === "MISSION COMPLETE!") tweetText += " All Stages Clear!";
+    tweetText += `\nPlay now! https://sin1.studio/ORBITAL_DRIFT/`;
+    document.getElementById('shareBtn').onclick = () => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank'); };
 }
 
-function restart() {
-    stage = 1; score = 0;
-    initGame();
-    document.getElementById('overlay').style.display = 'none';
-}
+function restart() { stage = 1; score = 0; initGame(); document.getElementById('overlay').style.display = 'none'; }
 
 const handleInput = (e) => {
     if (gameState !== 'playing' || stageEnergy <= 0) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.touches ? e.touches[0].clientX : e.clientX;
     const y = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    stageEnergy -= 10;
-    if (stageEnergy < 0) stageEnergy = 0;
-    
+    stageEnergy -= 10; if (stageEnergy < 0) stageEnergy = 0;
     floatingTexts.push({ x: x - rect.left, y: y - rect.top, text: "-10", life: 1.0 });
-    player.targetX = x - rect.left;
-    player.targetY = y - rect.top;
+    player.targetX = x - rect.left; player.targetY = y - rect.top;
 };
 
 window.addEventListener('mousedown', handleInput);
-window.addEventListener('touchstart', (e) => { handleInput(e); e.preventDefault(); }, { passive: false });
+window.addEventListener('touchstart', (e) => { if (gameState === 'playing' && stageEnergy > 0) { handleInput(e); e.preventDefault(); } }, { passive: false });
+document.getElementById('retryBtn').addEventListener('click', restart);
 window.addEventListener('resize', initGame);
-
 initGame();
 draw();
 </script>
