@@ -1,57 +1,99 @@
 # ORBITAL_DRIFT
 
-A stylish high-speed orbital action game. Navigate planetary gravity and manage your energy to survive.
+**A high-speed orbital action game. Manage your energy and survive the lethal pursuit.**
 
-[日本語](#japanese) | [English](#english)
-
----
-
-<a name="japanese"></a>
-## 日本語 (Japanese)
-
-### 🪐 オンラインでプレイ
-こちらから無料で遊べます：  
-[https://sin1.studio/ORBITAL_DRIFT/](https://sin1.studio/ORBITAL_DRIFT/)
-
-### 🚀 ルール
-- **目的**: 惑星や衛星に衝突せずに、金色のゴールに到達すること。
-- **操作**: タップ/クリック。移動ごとにエネルギーを10消費。
-- **死神モード**: エネルギーが0になると、最も近い敵が摩擦無視の50倍速で急接近します。
-
-### 🛡 プライバシーポリシー
-当サイトでは、アクセス解析のために **Google アナリティクス** を使用しています。
-- **Cookie の使用**: Google アナリティクスはデータの収集のために Cookie を使用します。
-- **収集されるデータ**: 収集されるデータは匿名であり、個人を特定するものではありません。
-- **処理について**: Google によるデータ収集・処理の仕組みについては、[Google のポリシーと規約](https://policies.google.com/technologies/partner-sites) をご覧ください。
-- **拒否方法**: ブラウザの設定で Cookie を無効にするか、[Google アナリティクス オプトアウト アドオン](https://tools.google.com/dlpage/gaoptout) を利用することで無効化が可能です。
-
-### 🐛 不具合の報告
-バグや改善案を見つけた場合は、お気軽に [GitHub Issues](https://github.com/sin1n24/ORBITAL_DRIFT/issues) までご報告ください。
+🎮 **Play now → [sin1.studio/ORBITAL_DRIFT](https://sin1.studio/ORBITAL_DRIFT/)**
 
 ---
 
-<a name="english"></a>
-## English
+## Overview
 
-### 🪐 Play Online
-Play for free here:  
-[https://sin1.studio/ORBITAL_DRIFT/](https://sin1.studio/ORBITAL_DRIFT/)
-
-### 🚀 Rules
-- **Objective**: Reach the golden goal without hitting obstacles.
-- **Controls**: Tap/Click to move. Consumes 10 Energy per maneuver.
-- **Lethal Mode**: When energy is 0, the nearest enemy hunts you down at 50x speed.
-
-### 🛡 Privacy Policy
-This site uses **Google Analytics** for access analysis.
-- **Cookies**: Google Analytics uses cookies to collect data.
-- **Data Collection**: Data is collected anonymously and does not identify individuals.
-- **Data Processing**: For details on how Google handles data, visit [Google’s Privacy & Terms](https://policies.google.com/technologies/partner-sites).
-- **Opt-out**: You can disable cookies in your browser settings or use the [Google Analytics Opt-out Browser Add-on](https://tools.google.com/dlpage/gaoptout).
-
-### 🐛 Bug Reports
-If you find any bugs or have suggestions, please report them via [GitHub Issues](https://github.com/sin1n24/ORBITAL_DRIFT/issues).
+ORBITAL_DRIFT is a browser-based action game where you navigate a glowing orb through 5 stages of increasingly dangerous planetary obstacles. Every tap costs energy — run out and the planets hunt you down.
 
 ---
-Developed by [sin1n24](https://github.com/sin1n24)  
-&copy; 2026 [sin1's studio](https://sin1.studio/)
+
+## How to Play
+
+1. **Tap / Click** anywhere on the screen to move your orb toward that point
+2. Each tap costs **-10 ENERGY**
+3. Reach the **yellow goal** to clear the stage
+4. Avoid the **red planets** and their orbiting satellites
+5. Clear all 5 stages to complete the mission
+
+### Energy System
+
+| Energy | Status |
+|--------|--------|
+| > 20   | Normal movement |
+| 1–20   | DANGER — HUD flashes red |
+| 0      | Enemies lock on and chase you — you cannot move |
+
+---
+
+## Stages
+
+| Stage | Enemies | Notes |
+|-------|---------|-------|
+| 1 | 3 | Tutorial pace |
+| 2 | 4 | Slightly faster rotation |
+| 3 | 5 | Wall planets added |
+| 4 | 7 | Tight corridors |
+| 5 | **BOSS** | Multi-satellite boss chase |
+
+---
+
+## Controls
+
+| Input | Action |
+|-------|--------|
+| Mouse click | Move player |
+| Touch (tap) | Move player (mobile) |
+| Touch (drag) | Continuous movement |
+
+---
+
+## Tech Stack
+
+- **Vanilla HTML / CSS / JavaScript** — no frameworks, no build step
+- **Canvas 2D API** — all rendering
+- **Google Analytics (gtag.js)** — play tracking
+- **Google Fonts** — Sawarabi Mincho (UI)
+
+---
+
+## Project Structure
+
+```
+ORBITAL_DRIFT/
+├── index.html      # Game (single file — all logic, rendering, styles)
+└── ogp.png         # OGP image for social sharing
+```
+
+---
+
+## Development
+
+Just open `index.html` in a browser — no install required.
+
+```bash
+git clone https://github.com/sin1n24/ORBITAL_DRIFT.git
+cd ORBITAL_DRIFT
+open index.html
+```
+
+---
+
+## Known Limitations
+
+- Audio is not implemented
+- No save / high-score persistence
+- Landscape orientation recommended on mobile
+
+---
+
+## License
+
+© 2026 [sin1's studio](https://sin1.studio/)  
+All rights reserved.
+
+---
