@@ -86,14 +86,13 @@ open index.html
 ## Known Limitations
 
 - Audio is not implemented
-- No save / high-score persistence
 - Landscape orientation recommended on mobile
 
 ---
 
 ## License
 
-© 2026 [sin1's studio](https://sin1.studio/)  
-All rights reserved.
+Code: MIT License (see `LICENSE`).
+Game assets (e.g. `ogp.png`) are © 2026 [sin1's studio](https://sin1.studio/), all rights reserved.
 
 ---
