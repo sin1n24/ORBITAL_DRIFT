@@ -96,6 +96,7 @@
     <div class="game-version">v1.2.3</div>
     <h1 id="resultMsg">GAME OVER</h1>
     <div class="final-score">SCORE: <span id="finalScoreVal">0</span></div>
+    <div style="font-size:14px;color:#aaa;margin-bottom:15px;">BEST: <span id="bestVal">0</span></div>
     <button class="btn btn-retry" id="retryBtn">Retry</button>
     <button class="btn btn-share" id="shareBtn">Share</button>
     
@@ -122,6 +123,7 @@ let floatingTexts = [];
 let boss = null;
 let isLandscape = true;
 let S = 0;
+let stageTimer = 0;
 
 const player = { 
     x: 0, y: 0, r: 0, color: '#00d2ff', 
@@ -131,6 +133,7 @@ const player = {
 const goal = { x: 0, y: 0, r: 0, color: '#ffea00', visible: true };
 
 function initGame() {
+    clearTimeout(stageTimer);
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     isLandscape = canvas.width > canvas.height;
@@ -222,21 +225,22 @@ function handleHit(sx, sy, obj) {
     }
 }
 
-function update() {
-    particles.forEach((p, i) => { p.x += p.vx; p.y += p.vy; p.life -= 0.02; if (p.life <= 0) particles.splice(i, 1); });
-    if (player.invincibleTime > 0) player.invincibleTime--;
+function update(dt) {
+    particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= 0.02 * dt; });
+    particles = particles.filter(p => p.life > 0);
+    if (player.invincibleTime > 0) player.invincibleTime = Math.max(0, player.invincibleTime - dt);
     if (gameState !== 'playing') return;
-    if (stageEnergy > 0) stageEnergy -= 0.04; else stageEnergy = 0;
+    if (stageEnergy > 0) stageEnergy = Math.max(0, stageEnergy - 0.04 * dt); else stageEnergy = 0;
     let controlScale = 1.0;
     if (player.knockbackTime > 0) {
         controlScale = 1.0 - (player.knockbackTime / 40);
-        player.knockbackTime--;
+        player.knockbackTime = Math.max(0, player.knockbackTime - dt);
         player.targetX = player.x;
         player.targetY = player.y;
     }
-    player.x += (player.targetX - player.x) * player.speed * controlScale + player.vx;
-    player.y += (player.targetY - player.y) * player.speed * controlScale + player.vy;
-    player.vx *= 0.92; player.vy *= 0.92;
+    player.x += ((player.targetX - player.x) * player.speed * controlScale + player.vx) * dt;
+    player.y += ((player.targetY - player.y) * player.speed * controlScale + player.vy) * dt;
+    player.vx *= Math.pow(0.92, dt); player.vy *= Math.pow(0.92, dt);
     player.trail.push({x: player.x, y: player.y});
     if (player.trail.length > 8) player.trail.shift();
     const sensorDist = S * 0.8;
@@ -244,9 +248,9 @@ function update() {
     enemies.forEach(e => { const d = Math.hypot(player.x - e.x, player.y - e.y); if (d < minD) { minD = d; closestEnemy = e; } });
     enemies.forEach((e, i) => {
         if (e.stunTime > 0) {
-            e.stunTime--;
-            e.vx *= 0.9; e.vy *= 0.9;
-            e.x += e.vx; e.y += e.vy;
+            e.stunTime = Math.max(0, e.stunTime - dt);
+            e.vx *= Math.pow(0.9, dt); e.vy *= Math.pow(0.9, dt);
+            e.x += e.vx * dt; e.y += e.vy * dt;
         } else {
             const distP = Math.hypot(player.x - e.x, player.y - e.y);
             const isKiller = (stageEnergy === 0 && e === closestEnemy);
@@ -263,11 +267,11 @@ function update() {
                     const repelDist = S * 0.25;
                     if (d < repelDist) { const ang = Math.atan2(e.y - other.y, e.x - other.x); e.vx += Math.cos(ang) * ((repelDist - d) / repelDist) * 0.6; e.vy += Math.sin(ang) * ((repelDist - d) / repelDist) * 0.6; }
                 });
-                e.vx *= 0.95; e.vy *= 0.95;
+                e.vx *= Math.pow(0.95, dt); e.vy *= Math.pow(0.95, dt);
             }
-            e.x += e.vx; e.y += e.vy;
+            e.x += e.vx * dt; e.y += e.vy * dt;
             if(e.x < 0 || e.x > canvas.width) e.vx *= -1; if(e.y < 0 || e.y > canvas.height) e.vy *= -1;
-            e.angle += e.rotSpeed;
+            e.angle += e.rotSpeed * dt;
         }
         const distP = Math.hypot(player.x - e.x, player.y - e.y);
         const sx = e.x + Math.cos(e.angle) * e.orbitR; const sy = e.y + Math.sin(e.angle) * e.orbitR;
@@ -275,18 +279,19 @@ function update() {
         else if (player.visible && Math.hypot(player.x - sx, player.y - sy) < player.r + e.satelliteR) handleHit(sx, sy, e);
     });
     if (boss) {
-        if (boss.stunTime > 0) boss.stunTime--;
+        if (boss.stunTime > 0) boss.stunTime = Math.max(0, boss.stunTime - dt);
         else {
             if (Math.hypot(boss.x - boss.tx, boss.y - boss.ty) < 20) { boss.tx = Math.random() * (canvas.width - S * 0.4) + S * 0.2; boss.ty = Math.random() * (canvas.height - S * 0.4) + S * 0.2; }
-            boss.x += (boss.tx - boss.x) * 0.02; boss.y += (boss.ty - boss.y) * 0.02;
-            if (stageEnergy === 0) { const angle = Math.atan2(player.y - boss.y, player.x - boss.x); boss.x += Math.cos(angle) * 3.0; boss.y += Math.sin(angle) * 3.0; }
+            boss.x += (boss.tx - boss.x) * 0.02 * dt; boss.y += (boss.ty - boss.y) * 0.02 * dt;
+            if (stageEnergy === 0) { const angle = Math.atan2(player.y - boss.y, player.x - boss.x); boss.x += Math.cos(angle) * 3.0 * dt; boss.y += Math.sin(angle) * 3.0 * dt; }
         }
-        boss.satellites.forEach(s => { if (s.stunTime > 0) s.stunTime--; else s.angle += s.rotSpeed; const sx = boss.x + Math.cos(s.angle) * s.orbitR; const sy = boss.y + Math.sin(s.angle) * s.orbitR; if (player.visible && Math.hypot(player.x - sx, player.y - sy) < player.r + s.size) handleHit(sx, sy, s); });
-        if (player.visible && Math.hypot(player.x - boss.x, player.y - boss.y) < player.r + boss.r) { score += Math.floor(stageEnergy); boss.visible = false; createExplosion(boss.x, boss.y, goal.color, 80); gameState = 'animating'; setTimeout(() => { if(stage === 5) showResult("MISSION COMPLETE!"); }, 1200); }
+        boss.satellites.forEach(s => { if (s.stunTime > 0) s.stunTime = Math.max(0, s.stunTime - dt); else s.angle += s.rotSpeed * dt; const sx = boss.x + Math.cos(s.angle) * s.orbitR; const sy = boss.y + Math.sin(s.angle) * s.orbitR; if (player.visible && Math.hypot(player.x - sx, player.y - sy) < player.r + s.size) handleHit(sx, sy, s); });
+        if (player.visible && Math.hypot(player.x - boss.x, player.y - boss.y) < player.r + boss.r) { score += Math.floor(stageEnergy); boss.visible = false; createExplosion(boss.x, boss.y, goal.color, 80); gameState = 'animating'; stageTimer = setTimeout(() => { if(stage === 5) showResult("MISSION COMPLETE!"); }, 1200); }
     } else {
-        if (player.visible && Math.hypot(player.x - goal.x, player.y - goal.y) < player.r + goal.r) { score += Math.floor(stageEnergy); goal.visible = false; createExplosion(goal.x, goal.y, goal.color, 40); gameState = 'animating'; setTimeout(() => { stage++; initGame(); }, 1000); }
+        if (player.visible && Math.hypot(player.x - goal.x, player.y - goal.y) < player.r + goal.r) { score += Math.floor(stageEnergy); goal.visible = false; createExplosion(goal.x, goal.y, goal.color, 40); gameState = 'animating'; stageTimer = setTimeout(() => { stage++; initGame(); }, 1000); }
     }
-    floatingTexts.forEach((t, i) => { t.y -= 1; t.life -= 0.02; if (t.life <= 0) floatingTexts.splice(i, 1); });
+    floatingTexts.forEach(t => { t.y -= 1 * dt; t.life -= 0.02 * dt; });
+    floatingTexts = floatingTexts.filter(t => t.life > 0);
     document.getElementById('stageNum').innerText = stage; document.getElementById('scoreVal').innerText = score; document.getElementById('bonusVal').innerText = Math.floor(stageEnergy);
 }
 
@@ -307,19 +312,54 @@ function draw() {
         const barW = player.r * 2.5; const barH = 5; ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.fillRect(player.x - barW/2, player.y - player.r - 15, barW, barH); ctx.fillStyle = stageEnergy > 40 ? '#00d2ff' : '#ff4b2b'; ctx.fillRect(player.x - barW/2, player.y - player.r - 15, barW * (stageEnergy / 200), barH);
     }
     floatingTexts.forEach(t => { ctx.fillStyle = `rgba(255, 75, 43, ${t.life})`; ctx.font = `bold ${S*0.04}px Arial`; ctx.fillText(t.text, t.x, t.y); });
-    requestAnimationFrame(() => { update(); draw(); });
+    const bonusEl = document.getElementById('bonusVal');
+    bonusEl.style.color = (stageEnergy <= 40 && Math.floor(Date.now()/250)%2===0) ? '#ff4b2b' : '';
+}
+
+let lastFrameT = performance.now();
+function frame(now) {
+    const dt = Math.min((now - lastFrameT) / 16.67, 3);
+    lastFrameT = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
 }
 
 function gameOver() { if (gameState !== 'playing') return; gameState = 'animating'; player.visible = false; createExplosion(player.x, player.y, player.color, 50); setTimeout(() => showResult("GAME OVER"), 1200); }
-function showResult(msg) { gameState = 'gameover'; document.getElementById('resultMsg').innerText = msg; document.getElementById('finalScoreVal').innerText = score; document.getElementById('overlay').style.display = 'flex'; let tweetText = `#ORBITAL_DRIFT Score: ${score} (Stage: ${stage}/5)`; if(stage === 5 && msg === "MISSION COMPLETE!") tweetText += " All Stages Clear!"; tweetText += `\nPlay now! https://sin1.studio/ORBITAL_DRIFT/`; document.getElementById('shareBtn').onclick = () => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank'); }; }
+function showResult(msg) {
+    gameState = 'gameover'; document.getElementById('resultMsg').innerText = msg; document.getElementById('finalScoreVal').innerText = score; document.getElementById('overlay').style.display = 'flex';
+    const best = Math.max(score, +(localStorage.getItem('od_best') || 0));
+    localStorage.setItem('od_best', best);
+    const bestEl = document.getElementById('bestVal');
+    if (bestEl) bestEl.innerText = best;
+    let tweetText = `#ORBITAL_DRIFT Score: ${score} (Stage: ${stage}/5)`; if(stage === 5 && msg === "MISSION COMPLETE!") tweetText += " All Stages Clear!"; tweetText += `\nPlay now! https://sin1.studio/ORBITAL_DRIFT/`; document.getElementById('shareBtn').onclick = () => { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank'); };
+}
 function restart() { stage = 1; score = 0; initGame(); document.getElementById('overlay').style.display = 'none'; }
 const handleInput = (e) => { if (gameState !== 'playing' || stageEnergy <= 0) return; const rect = canvas.getBoundingClientRect(); const x = e.touches ? e.touches[0].clientX : e.clientX; const y = e.touches ? e.touches[0].clientY : e.clientY; stageEnergy -= 10; if (stageEnergy < 0) stageEnergy = 0; floatingTexts.push({ x: x - rect.left, y: y - rect.top, text: "-10", life: 1.0 }); player.targetX = x - rect.left; player.targetY = y - rect.top; };
 window.addEventListener('mousedown', handleInput);
 window.addEventListener('touchstart', (e) => { if (gameState === 'playing' && stageEnergy > 0) { handleInput(e); e.preventDefault(); } }, { passive: false });
 document.getElementById('retryBtn').addEventListener('click', restart);
-window.addEventListener('resize', initGame);
+
+let resizeRaf = 0;
+window.addEventListener('resize', () => {
+    cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => {
+        // canvasサイズと座標のスケーリングのみ。ゲーム進行中はリセットしない
+        const oldW = canvas.width, oldH = canvas.height;
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        if (oldW > 0 && oldH > 0) {
+            const sx = canvas.width / oldW, sy = canvas.height / oldH;
+            player.x *= sx; player.y *= sy; player.targetX *= sx; player.targetY *= sy;
+            goal.x *= sx; goal.y *= sy;
+            enemies.forEach(e => { e.x *= sx; e.y *= sy; });
+            if (boss) { boss.x *= sx; boss.y *= sy; boss.tx *= sx; boss.ty *= sy; }
+        }
+        isLandscape = canvas.width > canvas.height; S = Math.min(canvas.width, canvas.height);
+    });
+});
+
 initGame();
-draw();
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>
